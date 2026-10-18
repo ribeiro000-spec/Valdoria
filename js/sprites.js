@@ -2,7 +2,7 @@
 /* Carrega os sprites prontos (assets/sprites) e desenha unidades, construções e cenário.
    As imagens são geradas por tools/gerar.js. A cor da equipe é aplicada ao carregar (máscara + multiplicação). */
 const SPR=(function(){
-  const BASE='assets/sprites/', VER=1;   /* aumente VER ao trocar as imagens (evita cache antigo) */
+  const BASE='assets/sprites/', VER=2;   /* aumente VER ao trocar as imagens (evita cache antigo) */
   const TEAM=['#3A7BFF','#FF4D4D'];
   const PI=Math.PI;
   let man=null, total=0, done=0, ready=false;

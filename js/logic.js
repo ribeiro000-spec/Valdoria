@@ -462,7 +462,7 @@ function foesOf(G,team){ return G.ents.filter(e=>!e.dead&&e.team!==team&&e.type!
 function fire(G,a,t){
   const d=a.def; a.atk=.3; a.ang=Math.atan2(t.y-a.y,t.x-a.x); const dm=d.dm*((air(t)&&d.aa)||1);
   if(d.proj) G.proj.push({id:G.nextId++,x:a.x,y:a.y,tid:t.id,team:a.team,kind:a.key,fire:d.ty==='magic'&&d.aoe,dm:dm,ty:d.ty,aoe:d.aoe||0,root:d.root||0,sp:10});
-  else { damage(G,t,dm,d.ty); fx(G,{k:'hit',x:t.x,y:t.y,dur:.3,c:a.team?'#FFB0B0':'#B0CCFF',ang:a.ang,ty:d.ty}); }
+  else { damage(G,t,dm,d.ty); fx(G,{k:'hit',x:t.x,y:t.y,dur:.3,c:a.team?'#FFB0B0':'#B0CCFF',ang:a.ang,ty:d.ty,src:a.key}); }
 }
 function attackIfPossible(G,a,t){
   const d=a.def;

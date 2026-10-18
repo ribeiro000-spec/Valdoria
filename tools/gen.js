@@ -14,13 +14,26 @@ function post(c,k){
   const gr=g.createLinearGradient(0,0,0,h); gr.addColorStop(0,'rgba(255,255,255,.08)'); gr.addColorStop(.55,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(20,0,40,.14)'); g.fillStyle=gr; g.fillRect(0,0,w,h);
   return o;
 }
+
+/* deslocamento suave dos contornos (tira o aspecto "perfeito" das formas) */
+const NFG=9, NFX=[], NFY=[]; (function(){ const r=mulb(4242); for(let i=0;i<NFG*NFG;i++){ NFX.push(r()-.5); NFY.push(r()-.5); } })();
+function nf(arr,x,y,w,h){ const fx=x/w*(NFG-1), fy=y/h*(NFG-1), ix=Math.min(NFG-2,fx|0), iy=Math.min(NFG-2,fy|0), tx=fx-ix, ty=fy-iy, l=(a,b,t)=>a+(b-a)*t; return l(l(arr[iy*NFG+ix],arr[iy*NFG+ix+1],tx),l(arr[(iy+1)*NFG+ix],arr[(iy+1)*NFG+ix+1],tx),ty); }
+function warp(c,amp){
+  const w=c.width,h=c.height,g=c.getContext('2d'),src=g.getImageData(0,0,w,h).data,out=g.createImageData(w,h),d=out.data;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const sx=x+nf(NFX,x,y,w,h)*amp*2, sy=y+nf(NFY,x,y,w,h)*amp*2, x0=Math.floor(sx), y0=Math.floor(sy), tx=sx-x0, ty=sy-y0; let r=0,gg=0,b=0,a=0;
+    for(let q=0;q<4;q++){ const dx=q&1, dy=q>>1, xx=Math.max(0,Math.min(w-1,x0+dx)), yy=Math.max(0,Math.min(h-1,y0+dy)), wg=(dx?tx:1-tx)*(dy?ty:1-ty), i=(yy*w+xx)*4, al=src[i+3]*wg; r+=src[i]*al; gg+=src[i+1]*al; b+=src[i+2]*al; a+=al; }
+    if(a>0){ const o=(y*w+x)*4; d[o]=r/a; d[o+1]=gg/a; d[o+2]=b/a; d[o+3]=a; }
+  }
+  g.putImageData(out,0,0); return c;
+}
 /* renderiza com equipe branca (base) e preta; a diferença vira a máscara de cor de equipe */
 function pair(w,h,fn){
   const A=render(w,h,g=>fn(g,2)), Bk=render(w,h,g=>fn(g,3));
   const da=A.getContext('2d').getImageData(0,0,w,h), db=Bk.getContext('2d').getImageData(0,0,w,h);
   const m=mkc(w,h), mg=m.getContext('2d'), md=mg.createImageData(w,h);
   for(let i=0;i<da.data.length;i+=4){ const d=Math.abs(da.data[i]-db.data[i])+Math.abs(da.data[i+1]-db.data[i+1])+Math.abs(da.data[i+2]-db.data[i+2]); const a=d>40?255:d*6; md.data[i+3]=Math.min(da.data[i+3],Math.min(255,a)); }
-  mg.putImageData(md,0,0);
+  mg.putImageData(md,0,0); warp(A,.7); warp(m,.7);
   return {base:post(A),mask:m};
 }
 function bbox(c){ const w=c.width,h=c.height,d=c.getContext('2d').getImageData(0,0,w,h).data; let x0=w,y0=h,x1=-1,y1=-1; for(let y=0;y<h;y++) for(let x=0;x<w;x++){ if(d[(y*w+x)*4+3]>12){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } } return x1<0?{x:0,y:0,w:1,h:1}:{x:x0,y:y0,w:x1-x0+1,h:y1-y0+1}; }
@@ -40,7 +53,7 @@ const WALK=10, ATKW=3, ATKS=4, IDLE=6;
 window.GEN={};
 GEN.unit=function(key){
   const FW=128, ax=64, ay=108, s=FW/100*1.02, hum=!!ART.CH[key], fly=!!ART.FLYERS[key];
-  const poses=hum?['f','b','s']:['f'], frames=[], idx={walk:{},atk:{},idle:{}};
+  const poses=(hum||ART.MULTI[key])?['f','b','s']:['f'], frames=[], idx={walk:{},atk:{},idle:{}};
   const mk=(anim,pose,params)=>{ const p=pair(FW,FW,(g,team)=>{ g.translate(ax,ay-30*s); g.scale(s,s); ART.drawRaw(g,key,team,Object.assign({pose:pose},params)); }); const f=mkFrame(p); f.anim=anim; f.pose=pose; frames.push(f); return frames.length-1; };
   poses.forEach(pose=>{
     idx.walk[pose]=[]; idx.atk[pose]=[]; idx.idle[pose]=[];
@@ -61,7 +74,7 @@ GEN.struct=function(key){
   const dirs=(key==='canhao'||key==='balista')?['u','d']:['u'];
   const frames=[], idx={idle:{},fire:{}}, N=10, F=5;
   const hasFire=(key==='canhao'||key==='balista'||key==='torre_arcana');
-  const mk=(dir,st)=>{ const p=pair(FW,FW,(g,team)=>{ g.translate(ax,ay-24*sc); g.scale(sc,sc); const tc=ART.TC[team]; ART.B[key](g,tc); ART.dynStruct(g,key,tc,0,0,1,Object.assign({dir:dir==='u'?-1:1,hpr:1},st)); }); const f=mkFrame(p); frames.push(f); return frames.length-1; };
+  const mk=(dir,st)=>{ const p=pair(FW,FW,(g,team)=>{ g.translate(ax,ay-24*sc); g.scale(sc,sc); const tc=ART.TC[team]; ART.resetSeed(); ART.B[key](g,tc); ART.dynStruct(g,key,tc,0,0,1,Object.assign({dir:dir==='u'?-1:1,hpr:1},st)); }); const f=mkFrame(p); frames.push(f); return frames.length-1; };
   dirs.forEach(d=>{
     idx.idle[d]=[]; idx.fire[d]=[];
     for(let i=0;i<N;i++) idx.idle[d].push(mk(d,{t:i/N*LOOP,atk:0}));
@@ -75,7 +88,7 @@ GEN.struct=function(key){
 /* ----------------- retratos das cartas ----------------- */
 GEN.card=function(key,tipo){
   const W=128, c=render(W,W,g=>{
-    g.translate(64,72);
+    ART.resetSeed(); g.translate(64,72);
     if(ART.SP[key]){ g.scale(1.75,1.75); ART.SP[key](g); }
     else if(ART.B[key]){ g.translate(0,-16); g.scale(1.7,1.7); ART.B[key](g,ART.TC[0]); ART.dynStruct(g,key,ART.TC[0],0,0,1,{t:.6,dir:-1}); }
     else { g.translate(0,-8); g.scale(1.62,1.62); ART.drawRaw(g,key,0,{pose:'f',mv:false,ph:0,aw:0,at:0,t:.8}); }

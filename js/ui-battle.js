@@ -179,10 +179,10 @@ function tapPlace(c,r){
   const at=ps.find(p=>p.pos&&p.pos.c===c&&p.pos.r===r);
   if(at){ at.pos=null; U.selPiece=at.key; if(isGuest()) send({t:'unplace',key:at.key}); return; }
   if(!U.selPiece||ps.find(p=>p.key===U.selPiece).pos){ const nx=ps.find(p=>!p.pos); if(nx) U.selPiece=nx.key; else return; }
-  if(CM.setPiece(G,U.me,U.selPiece,c,r)){
+  if(CM.setPiece(G,U.me,U.selPiece,c,r)){ AUD.sfx('pop',{vol:.9});
     if(isGuest()) send({t:'place',key:U.selPiece,c:c,r:r});
     const nx=ps.find(p=>!p.pos); U.selPiece=nx?nx.key:null;
-  } else toast('Use um dos pontos de construção do seu lado');
+  } else { toast('Use um dos pontos de construção do seu lado'); AUD.sfx('deny'); }
 }
 function toLogic(e){
   const rect=cv.getBoundingClientRect(); const vx=(e.clientX-rect.left)/rect.width*W, vy=(e.clientY-rect.top)/rect.height*H;
@@ -194,7 +194,7 @@ cv.addEventListener('pointerdown',e=>{
   if(G.phase==='place'){ tapPlace(Math.floor(p.x),Math.floor(p.y)); return; }
   if(G.phase!=='battle'||U.sel==null) return;
   const r=doPlay(U.sel,p.x,p.y);
-  if(r.ok){ U.sel=null; U.ptr=null; U.sig=''; } else if(r.msg) toast(r.msg);
+  if(r.ok){ U.sel=null; U.ptr=null; U.sig=''; } else if(r.msg){ toast(r.msg); AUD.sfx('deny'); }
 });
 cv.addEventListener('pointermove',e=>{ if(U.G&&e.pointerType==='mouse'){ const p=toLogic(e); U.ptr={x:p.vx,y:p.vy}; } });
 cv.addEventListener('pointerleave',()=>{ U.ptr=null; });
@@ -228,8 +228,9 @@ function update(dt){
   }
   if(G.phase==='place'){
     G.placeT-=dt; if(U.net&&U.ready[0]&&U.ready[1]) G.placeT=0;
+    { const tk=Math.ceil(G.placeT); if(tk!==U.tick){ U.tick=tk; if(tk>0&&tk<=5) AUD.sfx('tick',{vol:.8,min:.3}); } }
     pbarText(); updatePanel(); hudUpdate();
-    if(G.placeT<=0){ CM.startBattle(G); $('#pbar').hidden=true; U.sel=null; U.sig=''; showBanner('Já!','A batalha começou'); U.startT=1; }
+    if(G.placeT<=0){ CM.startBattle(G); AUD.music('batalha'); AUD.sfx('horn',{rate:1,min:0}); $('#pbar').hidden=true; U.sel=null; U.sig=''; showBanner('Já!','A batalha começou'); U.startT=1; }
     hostNet(dt); return;
   }
   if(U.startT>0){ U.startT-=dt; if(U.startT<=0) hideBanner(); } else CM.step(G,dt);
@@ -245,13 +246,14 @@ function updateGuest(dt){
   CM.interpView(G,performance.now()); CM.ageView(G,dt);
   if(G.shake){ U.shake=Math.max(U.shake,G.shake); G.shake=0; }
   if(U.revealT>0) return;
-  if(G.phase==='place'){ pbarText(); } else { $('#pbar').hidden=true; if(!U.battleShown){ U.battleShown=true; showBanner('Já!','A batalha começou'); U.startT=1; U.sel=null; U.sig=''; } }
+  if(G.phase==='place'){ pbarText(); } else { $('#pbar').hidden=true; if(!U.battleShown){ U.battleShown=true; AUD.music('batalha'); AUD.sfx('horn',{rate:1,min:0}); showBanner('Já!','A batalha começou'); U.startT=1; U.sel=null; U.sig=''; } }
   if(U.startT>0){ U.startT-=dt; if(U.startT<=0) hideBanner(); }
   updatePanel(); hudUpdate();
   if(G.over&&!U.ended){ U.ended=true; endGame(); }
 }
 function endGame(){
   const G=U.G, w=G.winner, me=U.me;
+  AUD.music(null); AUD.jingle(w===me?'win':'lose');
   const box=el('div');
   box.appendChild(el('h3',null,w===me?'Vitória! 🏆':w===2?'Empate':'Derrota'));
   const dead=(G.hearts[0]&&G.hearts[0].dead)||(G.hearts[1]&&G.hearts[1].dead);

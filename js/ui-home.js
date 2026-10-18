@@ -16,7 +16,7 @@ function drawHero(ts){
   const sw=(on)=>on?{at:Math.max(0,1-((t*1.1)%1)*1.6)}:{};
   L.forEach((u,i)=>ART.unit(g,u[0],0,u[1],u[2]+Math.sin(t*2.4+i)*.6,u[3],Object.assign({pose:'f',mv:false,t:t+i},u[0]==='cavaleiro'?sw(true):{})));
   Rr.forEach((u,i)=>ART.unit(g,u[0],1,u[1],u[2]+Math.sin(t*2.4+i)*.6,u[3],Object.assign({pose:'f',mv:false,t:t+i+2},u[0]==='berserker'?sw(true):{})));
-  ART.unit(g,'wyvern',1,640,92+Math.sin(t*2)*6,120,{pose:'f',mv:true,ph:t*.6,t:t});
+  ART.unit(g,'wyvern',1,640,128+Math.sin(t*2)*6,120,{pose:'f',mv:true,ph:t*.6,t:t});
   ART.unit(g,'fada',0,150,100+Math.sin(t*2.6)*5,86,{pose:'f',mv:true,ph:t*.6,t:t});
   // bolinha de fogo cruzando o campo
   const k=(t%3)/3; if(k<.8){ const x=360+k/.8*220, y=180-Math.sin(k/.8*3.14)*70; ART.glow(g,x,y,26,'#FF8A1F',.9); ART.glow(g,x,y,12,'#FFE08A',1); }

@@ -44,7 +44,7 @@ function drawPlacement(){
   });
 }
 function drawStruct(e){
-  const T=U.T; let v=VS.get(e.id); if(!v){ v={born:0,hpd:e.hp}; VS.set(e.id,v); } v.born=Math.min(1,v.born+U.dt/.5); v.seen=U.frame; v.hpd+=(e.hp-v.hpd)*Math.min(1,U.dt*6);
+  const T=U.T; let v=VS.get(e.id); if(!v){ v={born:0,hpd:e.hp}; VS.set(e.id,v); } v.born=Math.min(1,v.born+U.dt/.5); if(e.hit>0){ if(!v.hs){ v.hs=1; AUD.sfx('build_hit',{vol:.5,min:.15,pan:panOf(e.x)}); } } else v.hs=0; v.seen=U.frame; v.hpd+=(e.hp-v.hpd)*Math.min(1,U.dt*6);
   const [x,y]=PX(e.x,e.y), st={t:U.time,atk:e.atk>0?Math.min(1,e.atk/.3):0,hit:e.hit,hpr:e.hp/e.maxhp,dir:dirOf(e.team),born:v.born};
   if(e.type==='heart'){
     if(e.dead){ ART.glow(ctx,x,y,T*2.4,'#FF8A3D',.35); ART.E(ctx,x,y+T*.3,T*1.6,T*.7,'#6E6A66',1.4); ART.P(ctx,[[x-T*1.1,y+T*.4],[x-T*.5,y-T*.4],[x+T*.1,y+T*.1],[x+T*.7,y-T*.5],[x+T*1.2,y+T*.4]],'#8E8984',1.4); return; }
@@ -85,7 +85,7 @@ function vtheta(e,ang){ return U.me?ang+Math.PI:ang; }
 
 const PJ={arqueira:'arrow',heart:'arrow',balista:'bolt',canhao:'ball',torre_arcana:'orb',mago:'fire',wyvern:'fire',necromante:'skull',druida:'leaf',bardo:'note',fada:'orb',gargula:'orb',grifo:'arrow'};
 function drawProj(p){
-  const T=U.T; let tr=PTR.get(p.id); if(!tr){ tr=[]; PTR.set(p.id,tr); }
+  const T=U.T; let tr=PTR.get(p.id); if(!tr){ tr=[]; PTR.set(p.id,tr); AUD.sfx(p.fire?'fire_cast':(PSND[p.kind]||'magic'),{vol:.55,min:.09,pan:panOf(p.x)}); }
   const [x,y]=PX(p.x,p.y); tr.push([x,y]); if(tr.length>9) tr.shift(); tr.seen=U.frame;
   const q=tr.length>2?tr[tr.length-3]:null; const ang=q?Math.atan2(y-q[1],x-q[0]):1.57;
   const kind=p.fire?'fire':(PJ[p.kind]||(p.ty==='magic'?'orb':'arrow'));
@@ -111,7 +111,28 @@ function drawProj(p){
 }
 
 /* efeitos */
+const HEAVY={golem:1,berserker:1,ariete:1};
+const PSND={arqueira:'arrow',heart:'arrow',grifo:'arrow',balista:'balista',canhao:'cannon',wyvern:'fire_cast'};
+function panOf(x){ return (PX(x,0)[0]/(CM.W*U.T)-.5)*1.4; }
+function fxSound(f){
+  const o={pan:panOf(f.x)};
+  switch(f.k){
+    case 'hit': AUD.sfx(f.ty==='magic'?'magichit':(HEAVY[f.src]?'punch':'sword'),Object.assign({vol:.8,min:.07},o)); break;
+    case 'spawn': AUD.sfx('spawn',Object.assign({vol:.7,min:.08},o)); break;
+    case 'ghost': AUD.sfx('die',Object.assign({vol:.6,min:.08},o)); break;
+    case 'crumble': AUD.sfx(f.big?'heart_die':'build_die',Object.assign({vol:f.big?1:.85,min:.1},o)); break;
+    case 'fireball': AUD.sfx('fire_cast',o); break;
+    case 'boom': AUD.sfx('explosion',Object.assign({vol:.9,min:.1},o)); break;
+    case 'bolt': AUD.sfx('lightning',Object.assign({vol:.8,min:.15},o)); break;
+    case 'heal': AUD.sfx('heal',o); break;
+    case 'icewall': AUD.sfx('ice',o); break;
+    case 'silence': AUD.sfx('silence',o); break;
+    case 'spell': AUD.sfx({espinhos:'thorns',runa:'rune',selo_gelo:'ice',rede:'net',tempestade:'thunder'}[f.sp]||'magic',o); break;
+    case 'spellhit': if(f.sp==='runa') AUD.sfx('explosion',Object.assign({vol:.7,min:.2},o)); break;
+  }
+}
 function fxDraw(f){
+  if(!f.snd){ f.snd=1; try{ fxSound(f); }catch(e){} }
   const T=U.T, k=Math.min(1,f.t/f.dur), [x,y]=PX(f.x,f.y);
   switch(f.k){
     case 'ring': ctx.strokeStyle=f.c; ctx.globalAlpha=1-k; ctx.lineWidth=5*(1-k)+1; ctx.beginPath(); ctx.arc(x,y,f.r*T*(.3+.7*ease(k)),0,6.2832); ctx.stroke(); ctx.globalAlpha=1; break;

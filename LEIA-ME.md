@@ -15,6 +15,7 @@ Extraia o conteúdo deste pacote **na raiz do repositório**, mantendo as pastas
 │   └── style.css          estilos
 ├── js/
 │   ├── logic.js           regras, cartas, mapas, simulação, IA e sincronização do multiplayer
+│   ├── audio.js           música (menu, preparo, batalha) e efeitos sonoros
 │   ├── sprites.js         carrega e desenha os sprites (personagens, construções, cenário)
 │   ├── net.js             rede: sala por código e busca de oponente (PeerJS / WebRTC)
 │   ├── scenery.js         monta o fundo da partida com os sprites de cenário
@@ -32,8 +33,13 @@ Extraia o conteúdo deste pacote **na raiz do repositório**, mantendo as pastas
 │       ├── structs/       construções e castelo (idem)
 │       ├── cards/         retratos das cartas
 │       └── scenery/       texturas e decorações de cada mapa
+│   └── audio/
+│       ├── musica-menu.mp3, musica-preparo.mp3, musica-batalha.mp3
+│       ├── sfx.mp3        todos os efeitos em um arquivo
+│       └── sfx.json       índice (início e duração de cada efeito)
 └── tools/                 (opcional) gerador dos sprites
-    ├── gerar.js
+    ├── gerar.js           gera os sprites
+    ├── gerar_audio.py     gera música e efeitos
     ├── gen.html
     ├── gen.js
     └── art-src.js
@@ -53,6 +59,7 @@ Em **Settings › Pages**, use a branch principal e a pasta `/ (root)`. O endere
 
 * Mudou um arquivo `.js` ou o `.css`? Aumente o número `?v=1` na tag correspondente do `index.html` para o navegador não usar a versão antiga em cache.
 * Trocou imagens em `assets/sprites`? Aumente `VER` no início de `js/sprites.js`.
+* Trocou áudio em `assets/audio`? Aumente `VER` no início de `js/audio.js`.
 
 ## Testar no computador
 
@@ -74,6 +81,17 @@ node tools/gerar.js
 ```
 
 O gerador desenha cada personagem em vários quadros (andar, atacar, parado; de frente, de costas e de lado), aplica luz de borda e sombra, separa a cor da equipe numa máscara e grava tudo em `assets/sprites`.
+
+## Regenerar o som (opcional)
+
+A música e os efeitos são sintetizados por código e já vêm prontos em `assets/audio`. Para gerar de novo (precisa de Python 3 com `numpy` e `scipy`, e do `ffmpeg`):
+
+```bash
+pip install numpy scipy
+python3 tools/gerar_audio.py
+```
+
+O navegador só libera o áudio depois do primeiro toque na tela. O botão **Som** (tela inicial e durante a partida) liga/desliga e ajusta o volume de música e efeitos.
 
 ## Multiplayer
 

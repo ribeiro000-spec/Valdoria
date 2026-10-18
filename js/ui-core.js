@@ -69,6 +69,7 @@ $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal()
 
 const views=['home','editor','bmenu','game'];
 function show(v){
+  AUD.music(v==='game'?'preparo':'menu');
   views.forEach(x=>{ $('#v-'+x).hidden=x!==v; });
   if(v!=='game') stopLoop();
   if(v==='home') startHero(); else stopHero();
