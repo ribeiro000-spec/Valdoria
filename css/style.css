@@ -219,3 +219,20 @@ canvas#cv{border-width:3px; border-radius:10px}
 .loading .lb{width:min(78vw,320px); height:18px; margin:0 auto; border:3px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden}
 .loading .lb i{display:block; height:100%; width:0; background:linear-gradient(180deg,#78E39B,#1FA85A); transition:width .15s}
 .loading p{font-family:'Nunito',system-ui,sans-serif; font-weight:800; font-size:.95rem; margin:0; text-shadow:0 1px 0 rgba(0,0,0,.5)}
+
+/* ===== v3: fúria final, mana em segmentos, recarga das cartas ===== */
+.clock.fury{color:#FF5A7A; animation:furyp .8s ease-in-out infinite}
+@keyframes furyp{50%{transform:scale(1.12)}}
+.mana .seg10{position:absolute; inset:0; display:grid; grid-template-columns:repeat(10,1fr); pointer-events:none}
+.mana .seg10 u{border-right:2px solid rgba(42,26,61,.35)}
+.mana.x2 i{background:linear-gradient(180deg,#FF9ACB,#E0337A)}
+.mana.x2::after{content:'×2'; position:absolute; right:6px; top:50%; transform:translateY(-50%); font-family:'Lilita One',system-ui,sans-serif; color:#fff; font-size:.85rem; text-shadow:0 1px 0 #000}
+.mana i{transition:width .12s linear}
+.hc .fill{position:absolute; left:0; right:0; top:0; height:0; background:rgba(20,10,40,.45); pointer-events:none; transition:height .1s linear}
+.hc .c{z-index:1}
+.hc{transition:transform .12s}
+.hc.t-tropa .art,.ct.t-tropa .art{background:radial-gradient(circle at 50% 35%,#fff7,transparent 65%),linear-gradient(180deg,#7fb0ff,#3d6fe0)}
+.hc.t-feitico .art,.ct.t-feitico .art{background:radial-gradient(circle at 50% 35%,#fff7,transparent 65%),linear-gradient(180deg,#5fe0cf,#129b8b)}
+.hc.t-constr .art,.ct.t-constr .art{background:radial-gradient(circle at 50% 35%,#fff7,transparent 65%),linear-gradient(180deg,#ffbf6a,#e07a1a)}
+.sheet .abil{background:var(--panel2); border:2.5px solid var(--line); border-radius:12px; padding:6px 10px; margin:8px 0}
+.banner.light{background:transparent; place-content:start center; padding-top:18%} .banner.light h3{color:#FF6A8A}

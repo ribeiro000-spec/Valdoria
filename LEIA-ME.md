@@ -1,5 +1,19 @@
 # Valdoria · Guerra de Cartas
 
+## Novidades da versão 3
+
+* **Arte nova**: todos os sprites foram refeitos com um motor 2.5D próprio (vista 3/4, contorno de desenho animado e sombreamento). Tropas em **8 direções**, com animações de parado, andar e atacar; canhão e balista giram a torre na direção do alvo; castelo, construções, retratos e os 6 cenários também são novos (platôs elevados com paredão e decoração).
+* **Correção das tropas invisíveis**: um erro ao desenhar construções interrompia o desenho das tropas daquele quadro. Agora cada peça é desenhada de forma isolada e, se faltar um sprite, aparece um marcador no lugar.
+* **Tamanhos e movimento**: tropas em escala consistente (pequenas, médias e grandes), caminhos suavizados (sem zigue-zague), poeira nos passos, arremessos em arco com sombra.
+* **Efeitos de ataque**: arcos de corte, faíscas, números de dano, críticos, empurrão, explosões com destroços, clarão do canhão.
+* **Novas mecânicas**
+  * **Fúria final**: no último minuto a mana enche 2× mais rápido (música e aviso próprios).
+  * **Veterania**: tropas ganham ★ ao derrotar 2 e 5 inimigos (+20% de vida e dano por nível).
+  * **Habilidades**: Investida do Cavaleiro, Fúria do Berserker, Emboscada do Ladino, Golem que se parte em 2 golenzinhos, golpes críticos.
+  * **Último suspiro**: na primeira vez que o Coração cai abaixo de 40%, solta uma onda de choque que empurra e congela os inimigos próximos.
+  * **Cartas novas**: Lanceiro (anti-gigante), Anão Bombardeiro (bombas em área) e Poção de Fúria (acelera suas tropas).
+* **Som**: trilhas compostas (menu, preparo, batalha e fúria final) e novos efeitos (crítico, investida, subir de nível, onda de choque...).
+
 Jogo de cartas e batalha em tempo real que roda no navegador (HTML + JavaScript), com modo contra a máquina e **multiplayer online** (código de sala ou busca de oponente).
 
 ## Como salvar no GitHub
@@ -34,15 +48,16 @@ Extraia o conteúdo deste pacote **na raiz do repositório**, mantendo as pastas
 │       ├── cards/         retratos das cartas
 │       └── scenery/       texturas e decorações de cada mapa
 │   └── audio/
-│       ├── musica-menu.mp3, musica-preparo.mp3, musica-batalha.mp3
+│       ├── musica-menu.mp3, musica-preparo.mp3, musica-batalha.mp3, musica-furia.mp3
 │       ├── sfx.mp3        todos os efeitos em um arquivo
 │       └── sfx.json       índice (início e duração de cada efeito)
-└── tools/                 (opcional) gerador dos sprites
-    ├── gerar.js           gera os sprites
+└── tools/                 (opcional) geradores
+    ├── gerar.js           gera os sprites (roda gen.html no Chromium)
     ├── gerar_audio.py     gera música e efeitos
     ├── gen.html
-    ├── gen.js
-    └── art-src.js
+    ├── gen.js             monta os atlas (imagem + máscara da equipe)
+    ├── art-src.js         motor 2.5D: tropas, criaturas e construções
+    └── art-scene.js       cenários (texturas, decoração) e ícones dos feitiços
 ```
 
 Pelo site do GitHub: **Add file › Upload files**, arraste **o conteúdo** da pasta extraída (as pastas `css`, `js`, `assets`, `tools` e os arquivos soltos) e faça o commit. Pelo terminal:
@@ -77,10 +92,11 @@ Os sprites já vêm prontos. Para alterar o desenho e gerar de novo:
 ```bash
 npm i playwright
 npx playwright install chromium
-node tools/gerar.js
+node tools/gerar.js              # tudo
+node tools/gerar.js golem heart  # só algumas peças
 ```
 
-O gerador desenha cada personagem em vários quadros (andar, atacar, parado; de frente, de costas e de lado), aplica luz de borda e sombra, separa a cor da equipe numa máscara e grava tudo em `assets/sprites`.
+O gerador monta cada personagem com formas 3D simples (esferas, membros, discos, caixas), desenha 5 direções × (parado, andar, atacar), separa a cor da equipe numa máscara e grava tudo em `assets/sprites`. As outras 3 direções são espelhadas no jogo.
 
 ## Regenerar o som (opcional)
 

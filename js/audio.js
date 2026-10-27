@@ -2,7 +2,7 @@
 /* Som do jogo: música em loop (menu, preparo, batalha) e efeitos (arquivo único com índice).
    Os arquivos vêm de assets/audio e são gerados por tools/gerar_audio.py. O navegador só libera o áudio depois do primeiro toque. */
 const AUD=(function(){
-  const BASE='assets/audio/', VER=2;
+  const BASE='assets/audio/', VER=3;
   const PREF={m:true,s:true,mv:.6,sv:.9};
   try{ Object.assign(PREF,JSON.parse(localStorage.getItem('vd:snd')||'{}')); }catch(e){}
   let ctx=null, master=null, musG=null, sfxG=null, sfxBuf=null, sprite=null, started=false, cur=null, want=null, duck=0, voices=0;
@@ -36,6 +36,7 @@ const AUD=(function(){
     startMusic(name);
     // pré-carrega a música de batalha enquanto o jogador está no menu
     if(ctx&&started&&name==='preparo') loadMusic('batalha');
+    if(ctx&&started&&name==='batalha') loadMusic('furia');
   }
   /* o: {vol, pan(-1..1), rate, min (intervalo mínimo em s)} */
   function sfx(name,o){

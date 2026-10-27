@@ -9,17 +9,21 @@ function drawHero(ts){
   const cs=getComputedStyle(document.documentElement);
   g.fillStyle=cs.getPropertyValue('--hill2').trim()||'#3FA84E'; g.beginPath(); g.ellipse(180,h+60,420,150,0,0,7); g.fill();
   g.fillStyle=cs.getPropertyValue('--hill1').trim()||'#58C25F'; g.beginPath(); g.ellipse(600,h+70,460,140,0,0,7); g.fill();
-  ART.struct(g,'heart',0,110,150,170,{t:t,hpr:1}); ART.struct(g,'heart',1,670,150,170,{t:t,hpr:1});
-  const cyc=t%4;
-  const L=[['cavaleiro',270,222,140],['arqueira',190,240,126],['mago',350,236,130]];
-  const Rr=[['berserker',515,222,140],['necromante',600,240,130],['golem',440,214,190]];
-  const sw=(on)=>on?{at:Math.max(0,1-((t*1.1)%1)*1.6)}:{};
-  L.forEach((u,i)=>ART.unit(g,u[0],0,u[1],u[2]+Math.sin(t*2.4+i)*.6,u[3],Object.assign({pose:'f',mv:false,t:t+i},u[0]==='cavaleiro'?sw(true):{})));
-  Rr.forEach((u,i)=>ART.unit(g,u[0],1,u[1],u[2]+Math.sin(t*2.4+i)*.6,u[3],Object.assign({pose:'f',mv:false,t:t+i+2},u[0]==='berserker'?sw(true):{})));
-  ART.unit(g,'wyvern',1,640,128+Math.sin(t*2)*6,120,{pose:'f',mv:true,ph:t*.6,t:t});
-  ART.unit(g,'fada',0,150,100+Math.sin(t*2.6)*5,86,{pose:'f',mv:true,ph:t*.6,t:t});
+  const T=62;
+  g.fillStyle='rgba(15,8,30,.22)'; [[110,236],[670,236]].forEach(q=>{ g.beginPath(); g.ellipse(q[0],q[1],T*1.5,T*.5,0,0,7); g.fill(); });
+  ART.struct(g,'heart',0,110,236,T,{t:t}); ART.struct(g,'heart',1,670,236,T,{t:t});
+  const pr=(k,x,y,team,ang,anim,ph,sc)=>{ g.fillStyle='rgba(15,8,30,.25)'; g.beginPath(); g.ellipse(x,y,T*.32*(sc||1),T*.13*(sc||1),0,0,7); g.fill(); ART.unit(g,k,team,x,y,T,{ang:ang,anim:anim,ph:ph,k:sc}); };
+  const sw=(o)=>((t*.7+o)%1);
+  pr('cavaleiro',300,272,0,.15,'atk',sw(0));
+  pr('arqueira',205,286,0,.35,'atk',sw(.2));
+  pr('mago',245,306,0,.4,'idle',t*.5%1);
+  pr('golem',455,262,1,Math.PI-.1,'walk',t*.8%1);
+  pr('necromante',590,276,1,Math.PI-.3,'idle',t*.5%1);
+  pr('berserker',520,292,1,Math.PI-.2,'atk',sw(.5));
+  ART.unit(g,'wyvern',1,620,170+Math.sin(t*2)*6,T,{ang:Math.PI-.4,anim:'walk',ph:t*.8%1});
+  ART.unit(g,'fada',0,165,140+Math.sin(t*2.6)*5,T,{ang:.3,anim:'idle',ph:t%1});
   // bolinha de fogo cruzando o campo
-  const k=(t%3)/3; if(k<.8){ const x=360+k/.8*220, y=180-Math.sin(k/.8*3.14)*70; ART.glow(g,x,y,26,'#FF8A1F',.9); ART.glow(g,x,y,12,'#FFE08A',1); }
+  const k=(t%3)/3; if(k<.8){ const x=250+k/.8*240, y=250-Math.sin(k/.8*3.14)*110; ART.glow(g,x,y,26,'#FF8A1F',.9); ART.glow(g,x,y,12,'#FFE08A',1); }
   heroRaf=requestAnimationFrame(drawHero);
 }
 function startHero(){ stopHero(); heroRaf=requestAnimationFrame(drawHero); }

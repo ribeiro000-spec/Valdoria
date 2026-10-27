@@ -88,60 +88,100 @@ def deg(d,base=D): return base+MIN[d%7]+12*(d//7)
 CH={'Dm':[50,57,62,65],'Bb':[46,53,58,62],'F':[53,57,60,65],'C':[48,55,60,64],'A':[45,52,57,61],'Gm':[43,50,55,58]}
 BASSN={'Dm':38,'Bb':34,'F':41,'C':36,'A':33,'Gm':31}
 CT={'Dm':[0,2,4],'Bb':[5,0,2],'F':[3,5,0],'C':[2,4,6],'A':[4,6,1],'Gm':[1,3,5]}   # graus que são notas do acorde (relativos a ré)
-def melody(prog,seed,beats_per_bar=4,notes_per_bar=4,oct=1,start=2):
-    r=np.random.default_rng(seed); cur=start+7*oct; out=[]
-    for bi,ch in enumerate(prog):
-        tones=[(d+7*k) for d in CT[ch] for k in (oct,oct+1)]
-        for k in range(notes_per_bar):
-            if k==0 or r.random()<.5: cur=min(tones,key=lambda x:abs(x-cur)+r.random()*1.5)
-            else: cur+=int(r.choice([-1,1,1,-2,2]))
-            cur=max(5+7*oct-3,min(7*oct+12,cur)); out.append((bi*beats_per_bar+k*beats_per_bar/notes_per_bar,beats_per_bar/notes_per_bar*(1.8 if k==notes_per_bar-1 and r.random()<.5 else .95),deg(cur)))
-    return out
-# ---------- faixas ----------
-def track(bpm,bars,prog,build,tail=True):
-    spb=60/bpm; total=bars*4*spb; buf=np.zeros((2,int(total*SR)))
-    build(buf,spb,bars,prog); return buf
-def menu(buf,spb,bars,prog):
+
+# ---------- instrumentos extras ----------
+def choir(ms,d,v=.7):
+    t=T(d); x=np.zeros_like(t); vib=1+.005*np.sin(2*np.pi*5*t)
+    for m in ms:
+        for dt in (-6,0,6): x+=saw(f(m)*vib*2**(dt/1200),t,rng.random())
+    y=bp(x,500,900)*1.0+bp(x,1050,1400)*.6+bp(x,2400,2900)*.25
+    return y*adsr(len(t),.4,.2,.85,.6)/max(1,len(ms))**.6*v*.5
+def pizz(m,v=.8):
+    t=T(.5); x=sum(np.sin(2*np.pi*f(m)*k*t)*np.exp(-t*(9+k*5))/k for k in range(1,6)); return x*v*.5
+def flute(m,d,v=.8):
+    t=T(d); vib=1+.007*np.sin(2*np.pi*5.2*t)*np.minimum(1,t*3)
+    x=np.sin(2*np.pi*f(m)*vib*t)+.18*np.sin(4*np.pi*f(m)*vib*t)+bp(noise(len(t)),f(m)*1.5,f(m)*3.5)*.06
+    return x*adsr(len(t),.05,.1,.85,.12)*v*.42
+def crash(v=1):
+    t=T(1.6); return hp(noise(len(t)),5000)*np.exp(-t*2.6)*v*.22
+def tom(m,v=1):
+    t=T(.4); fr=f(m)*(1+.5*np.exp(-t*25)); return (np.sin(2*np.pi*np.cumsum(fr)/SR)*np.exp(-t*8)+lp(noise(len(t)),900)*np.exp(-t*30)*.3)*v*.8
+# ---------- temas compostos (batida, duração em batidas, nota MIDI) ----------
+BAT=[(0,.5,69),(.5,.5,74),(1,1,76),(2,.5,77),(2.5,.5,76),(3,1,74),
+     (4,.5,70),(4.5,.5,74),(5,1,77),(6,1,79),(7,1,77),
+     (8,.5,72),(8.5,.5,77),(9,1,81),(10,.5,79),(10.5,.5,77),(11,1,76),
+     (12,1.5,73),(13.5,.5,76),(14,2,69),
+     (16,.5,74),(16.5,.5,76),(17,.5,77),(17.5,.5,79),(18,1,81),(19,1,77),
+     (20,1,79),(21,.5,77),(21.5,.5,74),(22,2,70),
+     (24,.5,77),(24.5,.5,79),(25,1,81),(26,.5,82),(26.5,.5,81),(27,1,77),
+     (28,1,76),(29,1,73),(30,2,69)]
+BATP=['Dm','Bb','F','A','Dm','Gm','Bb','A']
+MEN=[(0,1.5,74),(1.5,.5,72),(2,1,69),(3,1,65),(4,1.5,70),(5.5,.5,69),(6,2,65),
+     (8,1,72),(9,1,74),(10,1,77),(11,1,76),(12,3,76),(15,1,72),
+     (16,1.5,74),(17.5,.5,76),(18,1,77),(19,1,79),(20,1.5,81),(21.5,.5,79),(22,2,77),
+     (24,1,76),(25,1,77),(26,1,76),(27,1,72),(28,3,72),(31,1,69)]
+MENP=['Dm','Bb','F','C','Dm','Bb','F','C']
+def track(bpm,bars,build):
+    spb=60/bpm; buf=np.zeros((2,int(bars*4*spb*SR))); build(buf,spb,bars); return buf
+def menu(buf,spb,bars):
     for b in range(bars):
-        ch=prog[b%len(prog)]; t0=b*4*spb
-        put(buf,pad(CH[ch],4*spb+.3),t0,.9,-.1); put(buf,pad([m+12 for m in CH[ch][1:]],4*spb+.3,.35),t0,1,.35)
-        put(buf,bass(BASSN[ch],1.6*spb,.8),t0,1); put(buf,bass(BASSN[ch],1.6*spb,.6),t0+2*spb,1)
+        ch=MENP[b%8]; t0=b*4*spb; sec=b//8
+        put(buf,pad(CH[ch],4*spb+.3,.75),t0,.8,-.1)
+        if sec>=1: put(buf,choir([m+12 for m in CH[ch][1:]],4*spb+.2,.5),t0,.7,.3)
+        put(buf,pizz(BASSN[ch]+12,.9),t0,1,-.1); put(buf,pizz(BASSN[ch]+19,.6),t0+1.5*spb,1,.1); put(buf,pizz(BASSN[ch]+12,.7),t0+2*spb,1)
         arp=[CH[ch][0]+12,CH[ch][1]+12,CH[ch][2]+12,CH[ch][3]+12,CH[ch][2]+12,CH[ch][1]+12,CH[ch][3]+12,CH[ch][2]+12]
-        for k in range(8): put(buf,harp(arp[k],1.2,.8),t0+k*spb/2,.9,-.35+k*.1)
-        if b%4==0: put(buf,taiko(.55,.9),t0,1)
-    for (s,d,m) in melody([prog[b%len(prog)] for b in range(bars)],11,notes_per_bar=3,oct=2): 
-        if s%8<7: put(buf,lead(m,d*spb,.85),s*spb,1,.15)
-def prep(buf,spb,bars,prog):
+        for k in range(8): put(buf,harp(arp[k],1.2,.65),t0+k*spb/2,.8,-.4+k*.1)
+        if b%4==0: put(buf,taiko(.45,.9),t0,1)
+        if sec>=1: put(buf,hat(.35),t0+1*spb,1,.4); put(buf,hat(.35),t0+3*spb,1,.4)
+    for rep in range(bars//8):
+        for (s,d,m) in MEN:
+            t=(rep*32+s)*spb; put(buf,flute(m+(12 if rep==1 and s>=16 else 0),d*spb*1.05,.9),t,1,.12)
+            if rep==1: put(buf,strings([m-12],d*spb,.35),t,.6,-.2)
+def prep(buf,spb,bars):
+    prog=['Dm','Dm','Bb','A']
     for b in range(bars):
-        ch=prog[b%len(prog)]; t0=b*4*spb
-        put(buf,pad(CH[ch],4*spb+.3,.8),t0,.9)
-        for k in range(8): put(buf,strings([CH[ch][0]+12,CH[ch][2]+12],.28,.55,True),t0+k*spb/2,.8,-.2+k*.06)
+        ch=prog[b%4]; t0=b*4*spb
+        put(buf,pad(CH[ch],4*spb+.3,.7),t0,.9)
+        for k in range(8): put(buf,strings([CH[ch][0]+12,CH[ch][2]+12],.26,.55,True),t0+k*spb/2,.8,-.2+k*.06)
         put(buf,bass(BASSN[ch],3.6*spb,.8),t0,1)
         for k in (0,2): put(buf,taiko(.6+.1*(k==0),1.0),t0+k*spb,1)
         if b%2==1: put(buf,taiko(.5,1.15),t0+3.5*spb,1)
+        if b>=4: put(buf,hat(.5),t0+1.5*spb,1,.3); put(buf,hat(.5),t0+3.5*spb,1,-.3)
+        if b%4==3: [put(buf,tom(45+k*2,.6),t0+(3+k*.25)*spb,1,-.3+k*.2) for k in range(4)]
     put(buf,swell(2.4*spb*2,1),(bars*4-4.8)*spb,1)
-def battle(buf,spb,bars,prog):
-    for b in range(bars):
-        ch=prog[b%len(prog)]; t0=b*4*spb; r=CH[ch]
-        for k in range(8):
-            put(buf,bass(BASSN[ch],.95*spb/2,.95),t0+k*spb/2,1)
-            put(buf,strings([r[1]+12,r[2]+12] if k%2==0 else [r[0]+12,r[2]+12],.24,.5,True),t0+k*spb/2,.8,-.3+k*.08)
-            put(buf,hat(.7+.3*(k%2)),t0+k*spb/2,1,.3)
-        for k in (0,2): put(buf,kick(.9),t0+k*spb,1)
-        for k in (1,3): put(buf,snare(.8),t0+k*spb,1)
-        put(buf,taiko(.8,.95),t0,1); put(buf,taiko(.55,1.2),t0+2.5*spb,1)
-        if b%4==3: 
-            for k in range(4): put(buf,taiko(.5+.1*k,1.1-.08*k),t0+(3+k*.25)*spb,1)
-            put(buf,swell(1.2,.8),t0+2.2*spb,1)
-        if b%8==0: put(buf,swell(2.0,1),t0+(0)*spb,.7)
-        put(buf,pad(r,4*spb+.3,.6),t0,.9)
-    prg=[prog[b%len(prog)] for b in range(bars)]
-    for (s,d,m) in melody(prg,23,notes_per_bar=4,oct=2,start=3):
-        if (s//4)%8<6: put(buf,brass(m,d*spb,.9),s*spb,.9,.1); put(buf,lead(m+12,d*spb,.4),s*spb,.5,-.2)
+def battle_build(transpose=0,intense=False):
+    def build(buf,spb,bars):
+        for b in range(bars):
+            ch=BATP[b%8]; t0=b*4*spb; r=[m+transpose for m in CH[ch]]; bn=BASSN[ch]+transpose; sec=b//8
+            intro=(b<2) and not intense
+            for k in range(8):
+                put(buf,bass(bn,.9*spb/2,.95),t0+k*spb/2,1)
+                if not intro: put(buf,strings([r[1]+12,r[2]+12] if k%2==0 else [r[0]+12,r[2]+12],.22,.45,True),t0+k*spb/2,.75,-.3+k*.08)
+                put(buf,hat(.6+.35*(k%2)),t0+k*spb/2,1,.3)
+                if intense: put(buf,hat(.35),t0+k*spb/2+spb/4,1,-.3)
+            for k in (0,2): put(buf,kick(.95),t0+k*spb,1)
+            if intense: put(buf,kick(.7),t0+2.5*spb,1)
+            if not intro:
+                for k in (1,3): put(buf,snare(.85),t0+k*spb,1)
+            put(buf,taiko(.8,.95),t0,1); put(buf,taiko(.5,1.2),t0+2.5*spb,1)
+            if b%8==0: put(buf,crash(1),t0,1)
+            if b%4==3:
+                for k in range(4): put(buf,tom(50-k*3+transpose,.7),t0+(3+k*.25)*spb,1,.4-k*.25)
+            if sec%2==1 or intense: put(buf,choir(r,4*spb+.2,.55),t0,.75)
+            else: put(buf,pad(r,4*spb+.3,.55),t0,.9)
+        for rep in range(bars//8):
+            if rep==0 and not intense: continue
+            for (s,d,m) in BAT:
+                t=(rep*32+s)*spb; mm=m+transpose
+                put(buf,brass(mm,d*spb*.98,.95),t,.95,.1)
+                put(buf,lead(mm+12,d*spb,.35),t,.45,-.2)
+                if rep%2==1 or intense: put(buf,brass(mm-4 if mm%12 in (2,5,9) else mm-3,d*spb*.98,.55),t,.6,-.25)
+    return build
 def build_music():
-    T0=track(84,16,['Dm','Bb','F','C']*4,menu); T0=finish(reverb(T0,2.6,.34)); to_mp3(T0,os.path.join(OUT,'musica-menu.mp3'),'88k')
-    T1=track(100,12,['Dm','Dm','Bb','A']*3,prep); T1=finish(reverb(T1,2.2,.3)); to_mp3(T1,os.path.join(OUT,'musica-preparo.mp3'),'88k')
-    T2=track(140,32,['Dm','Bb','F','A','Dm','Gm','Bb','A']*4,battle); T2=finish(reverb(T2,1.6,.2)); to_mp3(T2,os.path.join(OUT,'musica-batalha.mp3'),'96k')
+    T0=track(84,16,menu); T0=finish(reverb(T0,2.6,.34)); to_mp3(T0,os.path.join(OUT,'musica-menu.mp3'),'96k')
+    T1=track(100,8,prep); T1=finish(reverb(T1,2.2,.3)); to_mp3(T1,os.path.join(OUT,'musica-preparo.mp3'),'88k')
+    T2=track(140,32,battle_build()); T2=finish(reverb(T2,1.6,.2)); to_mp3(T2,os.path.join(OUT,'musica-batalha.mp3'),'96k')
+    T3=track(158,16,battle_build(2,True)); T3=finish(reverb(T3,1.4,.18)); to_mp3(T3,os.path.join(OUT,'musica-furia.mp3'),'96k')
 # ---------- efeitos ----------
 def norm(x,p=.8): return x/(np.max(np.abs(x))+1e-9)*p
 def chirp(f0,f1,d,curve=1.0):
@@ -186,6 +226,15 @@ def fx_sets():
     t=T(.13); S['pop']=norm(np.sin(2*np.pi*(180+120*np.exp(-t*40))*t)*np.exp(-t*30)+lp(noise(len(t)),1800)*np.exp(-t*60)*.6,.7)
     t=T(.06); S['tick']=norm(np.sin(2*np.pi*1200*t)*np.exp(-t*60),.5)
     t=T(.3); S['swap']=norm(bp(noise(len(t)),900,5000)*np.sin(np.pi*np.minimum(1,t/.3))*.6+chirp(500,900,.3)*.15,.5)
+    t=T(.35); S['throw']=norm(bp(noise(len(t)),300,2000)*np.sin(np.pi*np.minimum(1,t/.35))*.8+chirp(300,700,.35)*np.exp(-t*8)*.2,.55)
+    t=T(.6); S['charge']=norm(np.concatenate([np.zeros(1)])[:0].sum()+lp(noise(len(t)),900)*np.exp(-t*9)+np.sin(2*np.pi*(80+80*np.exp(-t*20))*t)*np.exp(-t*7)*1.1+hp(noise(len(t)),2500)*np.exp(-t*50)*.5+sum(np.sin(2*np.pi*fr*t)*np.exp(-t*12)*.3 for fr in (1700,2550)),.95)
+    t=T(.35); S['crit']=norm(sum(np.sin(2*np.pi*fr*t)*np.exp(-t*(10+i*3))*a for i,(fr,a) in enumerate(((2637,1),(3951,.6),(5274,.4))))+hp(noise(len(t)),5000)*np.exp(-t*80)*.6,.6)
+    t=T(.9); S['rage']=norm(lp(saw(90,t)+saw(91.5,t),700)*np.sin(np.pi*np.minimum(1,t/.9))*.7+sum(np.sin(2*np.pi*(300+200*k)*t+k)*np.exp(-((t-.1*k-.1)**2)/.002)*.4 for k in range(6)),.75)
+    lv=np.zeros(int(.9*SR))
+    for k,m in enumerate((72,76,79,84,88)):
+        b2=bell(f(m),.5,.8); st=int(k*.08*SR); lv[st:st+len(b2)]+=b2[:len(lv)-st]
+    S['levelup']=norm(lv,.6)
+    t=T(1.6); S['shockwave']=norm(np.sin(2*np.pi*np.cumsum(70*np.exp(-t*2)+25)/SR)*np.exp(-t*2.2)*1.2+bp(noise(len(t)),200,1800)*np.exp(-t*3)*np.minimum(1,t*20)*.8+bell(440,1.6)*.25,.95)
     # fanfarra "Já!" e jingles
     b=np.zeros((2,int(1.4*SR)))
     for st,m,d in ((0,57,.3),(.28,62,.3),(.56,69,.8)): put(b,brass(m,d,1),st,1); put(b,brass(m-12,d,.7),st,.8)

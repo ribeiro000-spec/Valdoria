@@ -15,7 +15,7 @@ const VT=(c,r)=>U.me?[W-1-c,H-1-r]:[c,r];
 const vt=e=>e.team===U.me?0:1;
 const dirOf=team=>team===U.me?-1:1;
 const airE=e=>!!(e.def&&e.def.fly&&!(e.grounded>0));
-const SPELLR={bola_fogo:1.6,raio_arcano:2.5,bencao:2.6,muralha_gelo:1.5,silencio:2.6};
+const SPELLR={bola_fogo:1.6,raio_arcano:2.5,bencao:2.6,muralha_gelo:1.5,silencio:2.6,furia:2.6};
 
 function startAI(){
   if(!okDeck(B.d1)){ toast('Escolha um deck válido'); return; }
@@ -25,7 +25,7 @@ function startAI(){
   beginGameUI();
 }
 function beginGameUI(){
-  U.sel=null; U.selPiece=null; U.ptr=null; U.ended=false; U.sig=''; U.time=0; U.ready=[false,false]; U.snapAcc=0; U.shake=0; U.scorch=[]; U.battleShown=false; VS.clear(); PTR.clear();
+  U.sel=null; U.selPiece=null; U.ptr=null; U.ended=false; U.sig=''; U.time=0; U.ready=[false,false]; U.snapAcc=0; U.shake=0; U.scorch=[]; U.battleShown=false; U.furyShown=false; U.furyHide=0; U.errShown=0; VS.clear(); PTR.clear(); PARTS.length=0;
   show('game');
   $('#side0').innerHTML=''; $('#side1').innerHTML=''; $('#side1').hidden=true;
   $('#n0').textContent='Você'; $('#n1').textContent=U.oppNick;
@@ -45,7 +45,7 @@ function fitCanvas(force){
 const refit=()=>{ if(!$('#v-game').hidden){ U.T=0; setTimeout(()=>fitCanvas(),60); } };
 if(window.ResizeObserver) new ResizeObserver(()=>{ if(!$('#v-game').hidden) fitCanvas(); }).observe($('#arena'));
 window.addEventListener('resize',refit); window.addEventListener('orientationchange',refit);
-function showBanner(t,p){ const b=$('#banner'); $('h3',b).textContent=t; $('p',b).textContent=p||''; b.hidden=false; }
+function showBanner(t,p,light){ const b=$('#banner'); $('h3',b).textContent=t; $('p',b).textContent=p||''; b.classList.toggle('light',!!light); b.hidden=false; }
 function hideBanner(){ $('#banner').hidden=true; }
 function startLoop(){ stopLoop(); U.last=performance.now(); U.raf=requestAnimationFrame(frame); }
 function stopLoop(){ if(U.raf) cancelAnimationFrame(U.raf); U.raf=0; }
@@ -124,7 +124,7 @@ function doSwap(i){
 }
 function buildPanel(){
   const G=U.G, S0=G.side[U.me], box=$('#side0'); box.innerHTML='';
-  const m=el('div','mana'), mi=el('i'), mt=el('span'); m.appendChild(mi); m.appendChild(mt); U.mi=mi; U.mt=mt;
+  const m=el('div','mana'), mi=el('i'), mt=el('span'); m.appendChild(mi); const seg=el('b','seg10'); for(let i=0;i<9;i++) seg.appendChild(el('u')); m.appendChild(seg); m.appendChild(mt); U.mi=mi; U.mt=mt; U.mana=m;
   const bot=el('div','bot'); bot.appendChild(m);
   if(G.phase==='place'){
     box.appendChild(el('b','pt','Posicione suas construções'));
@@ -144,7 +144,7 @@ function buildPanel(){
     S0.hand.forEach((k,i)=>{
       const c=CM.CARDS[k], b=el('button','hc t-'+c.tipo); b.type='button';
       const art=el('span','art'); art.appendChild(img(k,null,60)); b.appendChild(art);
-      b.appendChild(el('span','n',c.nome)); b.appendChild(el('span','c',String(c.custo)));
+      b.appendChild(el('span','n',c.nome)); b.appendChild(el('span','c',String(c.custo))); b.appendChild(el('i','fill'));
       b.onclick=()=>{ U.sel=U.sel===i?null:i; U.ptr=null; };
       row.appendChild(b);
     });
@@ -164,6 +164,7 @@ function updatePanel(){
   [...$('#side0').querySelectorAll('.hc')].forEach((b,i)=>{
     const k=S0.hand[i], c=CM.CARDS[k]; if(!c) return;
     b.classList.toggle('sel',U.sel===i); b.classList.toggle('dim',S0.mana<c.custo); b.classList.toggle('block',!!CM.spellReason(G,U.me,k));
+    const fi=b.querySelector('.fill'); if(fi) fi.style.height=(S0.mana>=c.custo?0:(1-S0.mana/c.custo)*100)+'%';
   });
 }
 $('#g-quit').onclick=()=>{
@@ -206,6 +207,11 @@ function hudUpdate(){
   if(a) $('#hp-me').style.width=Math.max(0,a.hp/a.maxhp*100)+'%';
   if(b) $('#hp-foe').style.width=Math.max(0,b.hp/b.maxhp*100)+'%';
   $('#clock').textContent=fmt(G.phase==='battle'?CM.MATCH-G.t:CM.MATCH);
+  const fury=G.phase==='battle'&&G.t>=CM.MATCH-CM.FURY&&!G.over;
+  $('#clock').classList.toggle('fury',fury);
+  if(U.mana) U.mana.classList.toggle('x2',fury);
+  if(fury&&!U.furyShown){ U.furyShown=true; showBanner('Fúria final!','Mana ×2 no último minuto',true); U.furyHide=1.8; AUD.music('furia'); }
+  if(U.furyHide>0){ U.furyHide-=U.dt; if(U.furyHide<=0) hideBanner(); }
 }
 function pbarText(){ const G=U.G, p=$('#pbar'); p.hidden=false; p.textContent='Posicione · '+fmt(G.placeT)+(U.net&&U.ready[1-U.me]?' · rival pronto':''); }
 function hostNet(dt){

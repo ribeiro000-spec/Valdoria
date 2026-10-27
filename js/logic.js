@@ -2,7 +2,7 @@
 'use strict';
 const CM = (function(){
 
-const W=14, H=18, HALF=9, MATCH=180, MAXMANA=10, REGEN=2.2, AGGRO=6.5, PLACE_TIME=25, SPD=.75;
+const W=14, H=18, HALF=9, MATCH=180, FURY=60, LV=[2,5], MAXMANA=10, REGEN=2.2, AGGRO=6.5, PLACE_TIME=25, SPD=.75;
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y)-a.r-b.r;
@@ -12,11 +12,14 @@ const mkSt=()=>({slow:0,slowM:1,root:0,freeze:0,silence:0});
 /* ---------- cartas ---------- */
 const CARDS={
   cavaleiro:{tipo:'tropa',nome:'Cavaleiro',custo:3,info:'Tanque físico que ataca o inimigo mais próximo.',
-    u:{hp:420,sp:1.3,rg:1.1,dm:38,iv:1,ty:'phys',rs:[.35,0],tg:'near',r:.38}},
+    abil:'Investida: depois de andar um trecho sem lutar, o próximo golpe causa dano dobrado e empurra o alvo.',
+    u:{hp:420,sp:1.3,rg:1.1,dm:38,iv:1,ty:'phys',rs:[.35,0],tg:'near',r:.38,charge:1}},
   berserker:{tipo:'tropa',nome:'Berserker',custo:3,info:'Dano alto e defesa baixa. Ataca o mais próximo.',
-    u:{hp:260,sp:1.9,rg:1.1,dm:58,iv:.85,ty:'phys',rs:[0,0],tg:'near',r:.36}},
+    abil:'Fúria: abaixo de metade da vida, ataca 50% mais rápido. Golpes empurram tropas leves.',
+    u:{hp:260,sp:1.9,rg:1.1,dm:58,iv:.85,ty:'phys',rs:[0,0],tg:'near',r:.36,enrage:1,knock:.3}},
   ladino:{tipo:'tropa',nome:'Ladino',custo:3,info:'Rápido, ignora armadura e caça atiradores e magos.',
-    u:{hp:190,sp:2.4,rg:1,dm:44,iv:.7,ty:'pierce',rs:[0,0],tg:'hunt',r:.32}},
+    abil:'Emboscada: o primeiro golpe em cada alvo é crítico (dano ×2,5).',
+    u:{hp:190,sp:2.4,rg:1,dm:44,iv:.7,ty:'pierce',rs:[0,0],tg:'hunt',r:.32,ambush:1}},
   arqueira:{tipo:'tropa',nome:'Arqueira',custo:3,info:'Atira de longe e recua devagar quando alguém se aproxima.',
     u:{hp:150,sp:1.4,rg:5,dm:27,iv:.9,ty:'phys',proj:1,rs:[0,0],tg:'near',retreat:1,aa:1.5,r:.32}},
   mago:{tipo:'tropa',nome:'Mago',custo:4,info:'Dano mágico em área. Frágil e recua quando pressionado.',
@@ -30,7 +33,8 @@ const CARDS={
   bardo:{tipo:'tropa',nome:'Bardo',custo:3,info:'Aumenta a velocidade de ataque dos aliados próximos.',
     u:{hp:160,sp:1.5,rg:3,dm:14,iv:1.2,ty:'magic',proj:1,aura:3.5,rs:[0,0],tg:'sup',magicUser:1,r:.32}},
   golem:{tipo:'tropa',nome:'Golem de Pedra',custo:5,info:'Lento e muito resistente. Ignora tropas e foca construções.',
-    u:{hp:900,sp:.7,rg:1.3,dm:70,iv:1.8,ty:'phys',rs:[.5,.2],tg:'struct',r:.55}},
+    abil:'Desmorona: ao cair, se parte em 2 golenzinhos que continuam atacando construções.',
+    u:{hp:900,sp:.7,rg:1.3,dm:70,iv:1.8,ty:'phys',rs:[.5,.2],tg:'struct',r:.55,split:1,knock:.45}},
   ariete:{tipo:'tropa',nome:'Aríete',custo:4,info:'Ignora tudo e corre ao Coração. Frágil contra magia.',
     u:{hp:330,sp:1.5,rg:1.1,dm:110,iv:1.3,ty:'phys',rs:[.2,-.3],tg:'tower',r:.45}},
   grifo:{tipo:'tropa',nome:'Grifo',custo:4,info:'Voador veloz. Ignora obstáculos e muralhas; só projéteis e outros voadores o atingem.',
@@ -43,6 +47,11 @@ const CARDS={
     u:{hp:480,sp:1.5,rg:3.5,dm:55,iv:1.6,ty:'magic',proj:1,aoe:.9,rs:[.2,.1],tg:'near',fly:1,r:.5}},
   fada:{tipo:'tropa',nome:'Fada Curandeira',custo:3,info:'Voadora de suporte: cura aliados e remove lentidão, raiz, congelamento e silêncio.',
     u:{hp:120,sp:2,rg:3.5,dm:0,iv:1.2,ty:'magic',heal:30,cleanse:1,rs:[0,.3],tg:'sup',magicUser:1,fly:1,r:.3}},
+  lanceiro:{tipo:'tropa',nome:'Lanceiro',custo:3,info:'Lança longa: alcance maior que outros guerreiros e dano extra contra alvos grandes.',
+    abil:'Anti-gigante: dano ×1,8 contra golens, aríetes, wyverns, grifos e outras tropas grandes.',
+    u:{hp:300,sp:1.4,rg:1.7,dm:42,iv:1.1,ty:'pierce',rs:[.15,0],tg:'near',r:.34,big:1.8}},
+  bombardeiro:{tipo:'tropa',nome:'Anão Bombardeiro',custo:4,info:'Arremessa bombas em arco que explodem em área. Não alcança voadores.',
+    u:{hp:230,sp:1.15,rg:4,dm:75,iv:1.9,ty:'phys',proj:1,aoe:1,gnd:1,rs:[.2,0],tg:'near',retreat:1,r:.34}},
   engenheiro:{tipo:'tropa',nome:'Engenheiro',custo:3,info:'Vai até a construção mais ferida e restaura 35% da vida dela, uma vez. Depois luta.',
     u:{hp:200,sp:1.5,rg:1,dm:25,iv:1,ty:'phys',rs:[.1,0],tg:'near',repair:.35,r:.34}},
 
@@ -73,20 +82,23 @@ const CARDS={
   muralha_gelo:{tipo:'feitico',nome:'Muralha de Gelo',custo:3,
     info:'Cria uma barreira de 3 casas por 7 s. Bloqueia todos e os projéteis físicos.'},
   silencio:{tipo:'feitico',nome:'Silêncio',custo:3,
-    info:'Inimigos que usam magia ficam mudos por 5 s na área.'}
+    info:'Inimigos que usam magia ficam mudos por 5 s na área.'},
+  furia:{tipo:'feitico',nome:'Poção de Fúria',custo:3,
+    info:'Suas tropas na área ficam 35% mais rápidas e atacam 40% mais rápido por 6 s.'}
 };
 Object.keys(CARDS).forEach(k=>{ CARDS[k].id=k; });
 const SUMM={
   esqueleto:{n:'Esqueleto',hp:40,sp:2,rg:1,dm:14,iv:.8,ty:'phys',rs:[0,0],tg:'near',r:.25},
-  soldado:{n:'Soldado',hp:90,sp:1.6,rg:1,dm:20,iv:.9,ty:'phys',rs:[0,0],tg:'near',r:.3}
+  soldado:{n:'Soldado',hp:90,sp:1.6,rg:1,dm:20,iv:.9,ty:'phys',rs:[0,0],tg:'near',r:.3},
+  golenzinho:{n:'Golenzinho',hp:220,sp:.9,rg:1.1,dm:30,iv:1.5,ty:'phys',rs:[.4,.1],tg:'struct',r:.36,spr:'golem'}
 };
 const DIFF=[{iv:[2.6,3.8],sp:.35,reg:.85,cnt:0},{iv:[1.3,2.8],sp:.8,reg:1,cnt:0},{iv:[.7,1.5],sp:1,reg:1.2,cnt:1}];
-const HEART={hp:1600,rg:6,dm:34,iv:1.2,ty:'phys',proj:1,rs:[.3,.3]};
+const HEART={hp:2400,rg:6.5,dm:40,iv:1.2,ty:'phys',proj:1,rs:[.3,.3]};
 const ORDER={
-  tropa:['cavaleiro','berserker','ladino','arqueira','mago','necromante','druida','clerigo','bardo','golem','ariete','engenheiro','grifo','morcegos','gargula','wyvern','fada'],
+  tropa:['cavaleiro','berserker','ladino','lanceiro','arqueira','bombardeiro','mago','necromante','druida','clerigo','bardo','golem','ariete','engenheiro','grifo','morcegos','gargula','wyvern','fada'],
   constr:['canhao','torre_arcana','balista','muralha','altar','quartel'],
   armad:[],
-  feitico:['bola_fogo','raio_arcano','bencao','muralha_gelo','silencio','espinhos','runa','selo_gelo','rede','tempestade']
+  feitico:['bola_fogo','raio_arcano','bencao','muralha_gelo','silencio','furia','espinhos','runa','selo_gelo','rede','tempestade']
 };
 const isStruct=k=>{ return CARDS[k].tipo==='constr'; };
 const TG={near:'ataca o inimigo mais próximo',hunt:'caça atiradores e magos',struct:'ignora tropas e foca construções',tower:'ignora tudo e vai ao Coração',sup:'suporte: segue as tropas aliadas'};
@@ -103,6 +115,8 @@ function statLines(k){
     o.push('Resistência física '+pct(u.rs[0])+' · mágica '+pct(u.rs[1]));
     if(u.fly) o.push('Voador: ignora trilhas, obstáculos e muralhas');
     o.push('Comportamento: '+TG[u.tg]+(u.retreat?'; recua quando pressionado':''));
+    if(c.abil) o.push('Habilidade · '+c.abil);
+    o.push('Veterania: ganha ★ ao derrotar 2 e 5 inimigos (+20% vida e dano cada).');
   } else if(c.tipo==='constr'){
     const s=c.s;
     o.push('Vida '+s.hp+' · Ocupa 1 ponto de construção');
@@ -126,7 +140,7 @@ function validateDeck(ids){
   if(n>12) errs.push('Sobram '+(n-12)+' carta(s): o máximo é 12.');
   if(play<6) errs.push('Mínimo de 6 cartas jogáveis (tropas + feitiços).');
   if(st>4) errs.push('Máximo de 4 construções/armadilhas.');
-  if(!ids.some(k=>{ const c=CARDS[k]; return c&&((c.u&&(c.u.proj||c.u.fly))||(c.s&&c.s.proj&&!c.s.ground)||(c.z&&c.z.ground)); })) warns.push('Seu deck não tem como atacar voadores (use arqueira, mago, balista, rede...).');
+  if(!ids.some(k=>{ const c=CARDS[k]; return c&&((c.u&&((c.u.proj&&!c.u.gnd)||c.u.fly))||(c.s&&c.s.proj&&!c.s.ground)||(c.z&&c.z.ground)); })) warns.push('Seu deck não tem como atacar voadores (use arqueira, mago, balista, rede...).');
   ids.forEach(k=>{
     const c=CARDS[k]; if(!c||c.tipo!=='feitico'||!c.req) return;
     if(!c.req.some(r=>ids.indexOf(r)>=0)) warns.push(c.nome+' precisa de: '+c.reqTxt+'. Sem isso, a carta fica bloqueada.');
@@ -309,7 +323,8 @@ function mkUnit(G,team,key,x,y){
   const card=CARDS[key], d=card?card.u:SUMM[key];
   const e={id:G.nextId++,kind:'unit',team,key,def:d,name:card?card.nome:d.n,x,y,r:d.r,hp:d.hp,maxhp:d.hp,dead:false,
     cd:.4,tgt:null,tgtId:-1,retT:0,path:null,pathT:0,pathVer:-1,goalKey:'',noPath:false,st:mkSt(),haste:1,rtT:0,holdT:0,
-    phase:key==='engenheiro'?'repair':'fight',repT:0,repTgt:null,summonT:2.5,healT:.8,hit:0,owner:-1,moving:0,atk:0,ang:team===0?-1.5708:1.5708,pend:0,pw:.18,pt:-1};
+    phase:key==='engenheiro'?'repair':'fight',repT:0,repTgt:null,summonT:2.5,healT:.8,hit:0,owner:-1,moving:0,atk:0,ang:team===0?-1.5708:1.5708,pend:0,pw:.18,pt:-1,
+    lvl:0,kills:0,run:0,hitSet:null,rage:0,dmM:1,crit:0};
   addEnt(G,e); return e;
 }
 function fx(G,o){ o.t=0; G.fx.push(o); if(G.fxOut) G.fxOut.push(o); }
@@ -399,20 +414,40 @@ function findPath(G,fx0,fy0,tx,ty,goalOpen){
   while(c!==start){ path.push({x:(c%W)+.5,y:((c/W)|0)+.5}); c=par[c]; }
   path.reverse(); return path;
 }
+/* suaviza o caminho: pula pontos quando há linha livre (considerando o raio da tropa) */
+function lineFree(G,x1,y1,x2,y2,rad){
+  const L=Math.hypot(x2-x1,y2-y1), n=Math.ceil(L/.2); if(n<1) return true;
+  const nx=-(y2-y1)/L*rad, ny=(x2-x1)/L*rad;
+  for(let i=1;i<=n;i++){ const x=x1+(x2-x1)*i/n, y=y1+(y2-y1)*i/n;
+    if(blockedTile(G,Math.floor(x),Math.floor(y))||blockedTile(G,Math.floor(x+nx),Math.floor(y+ny))||blockedTile(G,Math.floor(x-nx),Math.floor(y-ny))) return false; }
+  return true;
+}
+function smooth(G,u,path){
+  if(path.length<3) return path;
+  const out=[]; let cx=u.x, cy=u.y, i=0;
+  while(i<path.length){
+    let j=Math.min(path.length-1,i+6);
+    while(j>i&&!(j===path.length-1&&false)&&!lineFree(G,cx,cy,path[j].x,path[j].y,u.r*.8)) j--;
+    // o último ponto pode estar dentro de uma construção (alvo): mantém
+    out.push(path[j]); cx=path[j].x; cy=path[j].y; i=j+1;
+  }
+  return out;
+}
 function tileMult(G,x,y){ const c=clamp(Math.floor(x),0,W-1), r=clamp(Math.floor(y),0,H-1); return G.tiles[r][c]==='~'?.65:1; }
 function moveToward(G,u,gx,gy,goalOpen,dt,mult){
   const s=u.st;
   if(s.root>0||s.freeze>0) return true;
-  if(air(u)){ const dx=gx-u.x, dy=gy-u.y, d=Math.hypot(dx,dy)||1, m=Math.min(d,u.def.sp*SPD*(mult||1)*(s.slow>0?s.slowM:1)*dt); u.x=clamp(u.x+dx/d*m,.3,W-.3); u.y=clamp(u.y+dy/d*m,.3,H-.3); u.moving=.2; u.ang=Math.atan2(dy,dx); return true; }
+  if(air(u)){ const dx=gx-u.x, dy=gy-u.y, d=Math.hypot(dx,dy)||1, m=Math.min(d,u.def.sp*SPD*(mult||1)*(s.slow>0?s.slowM:1)*(u.rage>0?1.35:1)*dt); u.run+=m; u.x=clamp(u.x+dx/d*m,.3,W-.3); u.y=clamp(u.y+dy/d*m,.3,H-.3); u.moving=.2; u.ang=Math.atan2(dy,dx); return true; }
   u.pathT-=dt;
   const key=Math.floor(gx)+','+Math.floor(gy);
   if(u.noPath&&u.pathVer===G.ver&&u.goalKey===key&&u.pathT>0) return 'nopath';
   if(u.path===null||u.pathVer!==G.ver||u.goalKey!==key||u.pathT<=0){
     u.path=findPath(G,u.x,u.y,gx,gy,goalOpen); u.goalKey=key; u.pathVer=G.ver; u.pathT=.6; u.noPath=(u.path===null);
+    if(u.path) u.path=smooth(G,u,u.path);
     if(u.path===null) return 'nopath';
   }
-  let move=u.def.sp*SPD*(mult||1)*(s.slow>0?s.slowM:1)*tileMult(G,u.x,u.y)*dt;
-  u.moving=.2;
+  let move=u.def.sp*SPD*(mult||1)*(s.slow>0?s.slowM:1)*tileMult(G,u.x,u.y)*(u.rage>0?1.35:1)*dt;
+  u.moving=.2; u.run+=move;
   if(u.path.length===0){
     const dx=gx-u.x, dy=gy-u.y, d=Math.hypot(dx,dy);
     if(d>.05){
@@ -432,19 +467,41 @@ function moveToward(G,u,gx,gy,goalOpen,dt,mult){
 
 /* combate */
 const air=t=>!!(t.def&&t.def.fly&&!(t.grounded>0));
-const canHit=(a,t)=>!air(t)||a.def.proj||a.def.aa||a.def.fly;
+const canHit=(a,t)=>!air(t)||((a.def.proj||a.def.aa||a.def.fly)&&!a.def.gnd);
 const canAct=e=>e.st.freeze<=0&&!(e.def.magicUser&&e.st.silence>0);
-function damage(G,e,amt,ty){
+function damage(G,e,amt,ty,src,crit){
   if(e.dead) return;
   const rs=e.def.rs||[0,0];
   const m=ty==='phys'?1-rs[0]:ty==='magic'?1-rs[1]:1;
-  e.hp-=amt*m; e.hit=.12;
-  if(e.hp<=0){ e.hp=0; e.dead=true; onDeath(G,e); }
+  const v=amt*m; e.hp-=v; e.hit=.12;
+  if(v>=1&&e.type!=='trap') fx(G,{k:'dmg',x:e.x,y:e.y,v:Math.round(v),cr:crit?1:0,tm:e.team,dur:crit?1:.75});
+  if(e.type==='heart'&&!e.shock&&e.hp>0&&e.hp<e.maxhp*.4) heartShock(G,e);
+  if(e.hp<=0){ e.hp=0; e.dead=true; if(src&&!src.dead&&src.kind==='unit'&&src.team!==e.team&&e.kind==='unit') addKill(G,src); onDeath(G,e); }
+}
+function addKill(G,u){
+  u.kills++;
+  const lv=u.kills>=LV[1]?2:u.kills>=LV[0]?1:0;
+  if(lv>u.lvl){ u.lvl=lv; const add=u.def.hp*.2; u.maxhp+=add; u.hp=Math.min(u.maxhp,u.hp+add); u.dmM=1+.2*lv; fx(G,{k:'lvl',x:u.x,y:u.y,lv:lv,dur:1.1}); }
+}
+/* Último suspiro: a primeira vez que o Coração cai abaixo de 40%, solta uma onda de choque */
+function heartShock(G,h){
+  h.shock=1; shake(G,.7);
+  fx(G,{k:'shock',x:h.x,y:h.y,r:3.6,dur:1.1,tm:h.team});
+  G.ents.forEach(e=>{ if(e.dead||e.kind!=='unit'||e.team===h.team) return; const d=Math.hypot(e.x-h.x,e.y-h.y); if(d-e.r>3.6) return;
+    damage(G,e,150,'magic'); if(!e.dead) knock(G,e,h.x,h.y,1.3); if(!e.dead) e.st.freeze=Math.max(e.st.freeze,.6); });
+}
+function knock(G,e,fx0,fy0,dist0){
+  if(e.dead||e.kind!=='unit'||e.def.r>=.5) return;
+  let dx=e.x-fx0, dy=e.y-fy0; const l=Math.hypot(dx,dy)||1; dx/=l; dy/=l;
+  const steps=6;
+  for(let i=0;i<steps;i++){ const nx=e.x+dx*dist0/steps, ny=e.y+dy*dist0/steps; if(nx<.3||ny<.3||nx>W-.3||ny>H-.3) break; if(!air(e)&&blockedTile(G,Math.floor(nx),Math.floor(ny))) break; e.x=nx; e.y=ny; }
+  e.path=null;
 }
 function shake(G,v){ G.shake=Math.max(G.shake||0,v); G.shakeOut=Math.max(G.shakeOut||0,v); }
 function onDeath(G,e){
   fx(G,{k:'ring',x:e.x,y:e.y,r:e.r+.5,dur:.35,c:'#FFF8E6'}); fx(G,{k:'burst',x:e.x,y:e.y,r:e.r+.6,dur:.5,c:'#FFF8E6',n:8});
-  if(e.kind==='unit') fx(G,{k:'ghost',key:e.key,team:e.team,x:e.x,y:e.y,ang:e.ang||0,fly:air(e)?1:0,r:e.r,dur:.75});
+  if(e.kind==='unit'){ fx(G,{k:'ghost',key:e.key,team:e.team,x:e.x,y:e.y,ang:e.ang||0,fly:air(e)?1:0,r:e.r,dur:.75});
+    if(e.def.split){ fx(G,{k:'rocks',x:e.x,y:e.y,dur:.8}); shake(G,.3); [-1,1].forEach(s=>{ const p=safeSpawn(G,e.x+s*.35,e.y,e.x,e.y); const m=mkUnit(G,e.team,'golenzinho',p.x,p.y); m.cd=.8; }); } }
   else if(e.type!=='trap'){ fx(G,{k:'crumble',key:e.key,team:e.team,x:e.x,y:e.y,big:e.type==='heart'?1:0,dur:e.type==='heart'?1.8:1}); shake(G,e.type==='heart'?1:.35); }
   if(e.kind==='struct'&&e.type!=='trap'){
     for(let r=0;r<H;r++) for(let c=0;c<W;c++) if(G.occ[r][c]===e) G.occ[r][c]=null;
@@ -452,17 +509,27 @@ function onDeath(G,e){
     if(e.type==='heart'&&!G.over){ G.over=true; G.winner=1-e.team; }
   }
 }
-function areaDamage(G,team,x,y,rad,amt,ty){
+function areaDamage(G,team,x,y,rad,amt,ty,gndOnly,src){
   G.ents.forEach(e=>{
     if(e.dead||e.team===team||e.type==='trap') return;
-    if(Math.hypot(e.x-x,e.y-y)-e.r<=rad) damage(G,e,amt,ty);
+    if(gndOnly&&air(e)) return;
+    if(Math.hypot(e.x-x,e.y-y)-e.r<=rad) damage(G,e,amt,ty,src);
   });
 }
 function foesOf(G,team){ return G.ents.filter(e=>!e.dead&&e.team!==team&&e.type!=='trap'); }
 function fire(G,a,t){
-  const d=a.def; a.atk=.3; a.ang=Math.atan2(t.y-a.y,t.x-a.x); const dm=d.dm*((air(t)&&d.aa)||1);
-  if(d.proj) G.proj.push({id:G.nextId++,x:a.x,y:a.y,tid:t.id,team:a.team,kind:a.key,fire:d.ty==='magic'&&d.aoe,dm:dm,ty:d.ty,aoe:d.aoe||0,root:d.root||0,sp:10});
-  else { damage(G,t,dm,d.ty); fx(G,{k:'hit',x:t.x,y:t.y,dur:.3,c:a.team?'#FFB0B0':'#B0CCFF',ang:a.ang,ty:d.ty,src:a.key}); }
+  const d=a.def; a.atk=.3; a.ang=Math.atan2(t.y-a.y,t.x-a.x);
+  let dm=d.dm*((air(t)&&d.aa)||1)*(a.dmM||1), crit=false, extra='';
+  if(d.big&&t.kind==='unit'&&t.def.r>=.4){ dm*=d.big; extra='big'; }
+  if(a.kind==='unit'){
+    if(d.charge&&a.run>=2.5){ dm*=2; crit=true; extra='charge'; }
+    if(d.ambush){ if(!a.hitSet) a.hitSet=new Set(); if(!a.hitSet.has(t.id)){ a.hitSet.add(t.id); dm*=2.5; crit=true; extra='ambush'; } }
+    if(!crit&&!d.proj&&G.rng()<.08){ dm*=1.5; crit=true; }
+    a.run=0;
+  }
+  if(d.proj) G.proj.push({id:G.nextId++,x:a.x,y:a.y,x0:a.x,y0:a.y,tid:t.id,gx:t.x,gy:t.y,team:a.team,kind:a.key,fire:d.ty==='magic'&&d.aoe,dm:dm,ty:d.ty,aoe:d.aoe||0,root:d.root||0,sp:a.key==='bombardeiro'?6.5:a.key==='canhao'?9:11,src:a.id,gnd:!!d.gnd,crit:crit});
+  else { damage(G,t,dm,d.ty,a,crit); fx(G,{k:'hit',x:t.x,y:t.y,dur:.3,c:a.team?'#FFB0B0':'#B0CCFF',ang:a.ang,ty:d.ty,src:a.key,cr:crit?1:0,ex:extra});
+    const kb=extra==='charge'?.6:(d.knock||0); if(kb&&!t.dead) knock(G,t,a.x,a.y,kb); }
 }
 function attackIfPossible(G,a,t){
   const d=a.def;
@@ -472,7 +539,7 @@ function attackIfPossible(G,a,t){
   if(d.proj&&(d.ty==='phys'||d.ty==='pierce')&&!air(t)&&!air(a)&&!losClear(G,a.x,a.y,t.x,t.y)) return false;
   if(!canAct(a)) return true;
   if(a.pend>0) return true;
-  if(a.cd<=0){ a.cd=d.iv*(a.haste||1); a.pw=d.proj?.2:.14; a.pend=a.pw; a.pt=t.id; a.ang=Math.atan2(t.y-a.y,t.x-a.x); }
+  if(a.cd<=0){ a.cd=d.iv*(a.haste||1)*(a.rage>0?.6:1)*(d.enrage&&a.hp<a.maxhp*.5?.65:1); a.pw=d.proj?.2:.14; a.pend=a.pw; a.pt=t.id; a.ang=Math.atan2(t.y-a.y,t.x-a.x); }
   return true;
 }
 function nearestEnemyUnit(G,u,rad){
@@ -551,7 +618,7 @@ function updateUnit(G,u,dt){
   const s=u.st, d=u.def;
   if(u.grounded>0) u.grounded-=dt;
   if(s.slow>0) s.slow-=dt; if(s.root>0) s.root-=dt; if(s.freeze>0) s.freeze-=dt; if(s.silence>0) s.silence-=dt;
-  if(u.cd>0) u.cd-=dt; if(u.hit>0) u.hit-=dt; if(u.moving>0) u.moving-=dt; if(u.atk>0) u.atk-=dt;
+  if(u.cd>0) u.cd-=dt; if(u.hit>0) u.hit-=dt; if(u.moving>0) u.moving-=dt; if(u.atk>0) u.atk-=dt; if(u.rage>0) u.rage-=dt;
   if(s.freeze>0){ u.pend=0; return; }
   if(u.pend>0){ u.pend-=dt; if(u.pend<=0){ u.pend=0; const tg=G.byId.get(u.pt); if(tg&&!tg.dead&&canAct(u)&&gap(u,tg)<=d.rg+.7) fire(G,u,tg); } }
   const act=canAct(u);
@@ -650,12 +717,19 @@ function updateStruct(G,s,dt){
 function updateProj(G,dt){
   for(let i=G.proj.length-1;i>=0;i--){
     const p=G.proj[i], t=G.byId.get(p.tid);
+    if(p.gnd&&p.aoe){ // bomba: cai no ponto marcado
+      const dx=p.gx-p.x, dy=p.gy-p.y, d=Math.hypot(dx,dy), m=p.sp*dt;
+      if(d<=m+.05){ areaDamage(G,p.team,p.gx,p.gy,p.aoe,p.dm,p.ty,true,G.byId.get(p.src)); fx(G,{k:'boom',x:p.gx,y:p.gy,r:p.aoe*1.1,dur:.7,small:1}); shake(G,.18); G.proj.splice(i,1); }
+      else { p.x+=dx/d*m; p.y+=dy/d*m; }
+      continue;
+    }
     if(!t||t.dead){ G.proj.splice(i,1); continue; }
+    p.gx=t.x; p.gy=t.y;
     const dx=t.x-p.x, dy=t.y-p.y, d=Math.hypot(dx,dy), m=p.sp*dt;
     (p.tr=p.tr||[]).push([p.x,p.y]); if(p.tr.length>7) p.tr.shift();
     if(d<=m+.15){
-      if(p.aoe>0){ areaDamage(G,p.team,t.x,t.y,p.aoe,p.dm,p.ty); fx(G,{k:'ring',x:t.x,y:t.y,r:p.aoe,dur:.3,c:p.fire?'#FF8A3D':'#C58BFF'}); fx(G,{k:'burst',x:t.x,y:t.y,r:p.aoe,dur:.5,c:p.fire?'#FFB02E':'#C58BFF',n:10}); }
-      else damage(G,t,p.dm,p.ty);
+      if(p.aoe>0){ areaDamage(G,p.team,t.x,t.y,p.aoe,p.dm,p.ty,false,G.byId.get(p.src)); fx(G,{k:'ring',x:t.x,y:t.y,r:p.aoe,dur:.3,c:p.fire?'#FF8A3D':'#C58BFF'}); fx(G,{k:'burst',x:t.x,y:t.y,r:p.aoe,dur:.5,c:p.fire?'#FFB02E':'#C58BFF',n:10}); }
+      else { damage(G,t,p.dm,p.ty,G.byId.get(p.src),p.crit); fx(G,{k:'phit',x:t.x,y:t.y,dur:.3,kind:p.kind}); }
       if(p.root&&!t.dead) t.st.root=Math.max(t.st.root,p.root);
       G.proj.splice(i,1);
     } else { p.x+=dx/d*m; p.y+=dy/d*m; }
@@ -699,7 +773,9 @@ function step(G,dt){
   if(G.over||G.phase!=='battle') return;
   G.t+=dt;
   while(G.iceExp.length&&G.iceExp[0]<=G.t){ G.iceExp.shift(); G.ver++; }
-  G.side.forEach((S,i)=>{ S.mana=Math.min(MAXMANA,S.mana+dt/REGEN*(i===1?G.dp[1].reg:1)); });
+  const fury=G.t>=MATCH-FURY;
+  if(fury&&!G.furyOn){ G.furyOn=true; fx(G,{k:'fury',x:W/2,y:H/2,dur:2.5}); }
+  G.side.forEach((S,i)=>{ S.mana=Math.min(MAXMANA,S.mana+dt/REGEN*(i===1?G.dp[1].reg:1)*(fury?2:1)); });
   if(!G.pvp) aiThink(G,1,dt); if(G.auto0) aiThink(G,0,dt);
   for(let i=G.delayed.length-1;i>=0;i--){ const d=G.delayed[i]; d.t-=dt; if(d.t<=0){ G.delayed.splice(i,1); d.fn(); } }
   const list=G.ents.slice();
@@ -772,6 +848,9 @@ function castSpell(G,side,k,x,y){
     }
     G.iceExp.push(G.t+7); G.ver++;
     fx(G,{k:'icewall',x:cx+.5,y:cy+.5,r:1.8,dur:.9}); shake(G,.15);
+  } else if(k==='furia'){
+    G.ents.forEach(e=>{ if(!e.dead&&e.team===side&&e.kind==='unit'&&Math.hypot(e.x-x,e.y-y)-e.r<=2.6) e.rage=6; });
+    fx(G,{k:'rage',x:x,y:y,r:2.6,dur:1.2});
   } else if(k==='silencio'){
     G.ents.forEach(e=>{ if(!e.dead&&e.team!==side&&e.type!=='trap'&&e.def.magicUser&&Math.hypot(e.x-x,e.y-y)-e.r<=2.6) e.st.silence=5; });
     fx(G,{k:'silence',x:x,y:y,r:2.6,dur:1.2});
@@ -845,6 +924,12 @@ function aiSpellTarget(G,side,k,enemies,eu,threats){
     S.lastIce=G.t;
     return {x:t.x+(me.x-t.x)*.5,y:t.y+(me.y-t.y)*.5};
   }
+  if(k==='furia'){
+    const own=G.ents.filter(e=>!e.dead&&e.team===side&&e.kind==='unit'&&eu.some(o=>dist(o,e)<4));
+    let best=null,bs=0;
+    own.forEach(e=>{ let sc=0; own.forEach(o=>{ if(Math.hypot(o.x-e.x,o.y-e.y)<=2.6) sc++; }); if(sc>bs){bs=sc;best=e;} });
+    return bs>=3?{x:best.x,y:best.y}:null;
+  }
   if(k==='silencio'){
     const mu=eu.filter(e=>e.def.magicUser);
     let best=null,bs=0;
@@ -882,7 +967,7 @@ function aiThink(G,side,dt){
   if(threats.length){
     const rush=threats.some(t=>t.def.tg==='tower'||t.def.tg==='struct');
     const air=threats.some(t=>t.def.fly);
-    const pref=troops.filter(h=>air&&G.dp[side].cnt?(h.d.u.proj||h.d.u.fly):rush?['cavaleiro','berserker','ladino'].indexOf(h.k)>=0:true);
+    const pref=troops.filter(h=>air&&G.dp[side].cnt?((h.d.u.proj&&!h.d.u.gnd)||h.d.u.fly):rush?['cavaleiro','berserker','ladino'].indexOf(h.k)>=0:true);
     const pool=pref.length?pref:troops;
     pick=pool[Math.floor(G.rng()*pool.length)];
   } else pick=troops[Math.floor(G.rng()*troops.length)];
@@ -905,13 +990,13 @@ function snapshot(G,side){
   const e=[];
   G.ents.forEach(x=>{
     if(x.dead&&x.type!=='heart') return;
-    if(x.kind==='unit') e.push([x.id,0,x.team,x.key,r2(x.x),r2(x.y),Math.round(x.hp),x.maxhp,x.r,x.moving>0?1:0,x.pend>0?r2(1-x.pend/x.pw):0,x.atk>0?r2(1-x.atk/.3):0,r2(x.ang||0),x.grounded>0?1:0,x.st.freeze>0?1:0,x.st.root>0?1:0,x.st.slow>0?1:0,x.st.silence>0?1:0,x.hit>0?1:0]);
-    else if(x.type!=='trap') e.push([x.id,1,x.team,x.key,r2(x.x),r2(x.y),Math.round(x.hp),x.maxhp,x.type,x.tx==null?-1:x.tx,x.ty==null?-1:x.ty,r2(x.atk>0?x.atk:0),x.hit>0?1:0,x.st.silence>0?1:0,x.dead?1:0]);
+    if(x.kind==='unit') e.push([x.id,0,x.team,x.key,r2(x.x),r2(x.y),Math.round(x.hp),x.maxhp,x.r,x.moving>0?1:0,x.pend>0?r2(1-x.pend/x.pw):0,x.atk>0?r2(1-x.atk/.3):0,r2(x.ang||0),x.grounded>0?1:0,x.st.freeze>0?1:0,x.st.root>0?1:0,x.st.slow>0?1:0,x.st.silence>0?1:0,x.hit>0?1:0,x.lvl||0,(x.rage>0?1:0)+(x.def.enrage&&x.hp<x.maxhp*.5?2:0)]);
+    else if(x.type!=='trap') e.push([x.id,1,x.team,x.key,r2(x.x),r2(x.y),Math.round(x.hp),x.maxhp,x.type,x.tx==null?-1:x.tx,x.ty==null?-1:x.ty,r2(x.atk>0?x.atk:0),x.hit>0?1:0,x.st.silence>0?1:0,x.dead?1:0,r2(x.ang||0)]);
   });
   const ice=[]; for(let r=0;r<H;r++) for(let c=0;c<W;c++) if(G.ice[r][c]>G.t) ice.push([c,r,r2(G.ice[r][c]-G.t)]);
   const S=G.side[side];
   const m={t:'s',ph:G.phase,pt:r2(G.placeT),tm:r2(G.t),ov:G.over?1:0,wn:G.winner,sh:G.shakeOut?r2(G.shakeOut):0,m:r2(S.mana),h:S.hand,q:S.queue[0],e:e,ice:ice,
-    p:G.proj.map(p=>[p.id,r2(p.x),r2(p.y),p.ty==='magic'?1:0,p.fire?1:0,p.aoe||0,p.kind||'']),
+    p:G.proj.map(p=>[p.id,r2(p.x),r2(p.y),p.ty==='magic'?1:0,p.fire?1:0,p.aoe||0,p.kind||'',r2(p.x0),r2(p.y0),r2(p.gx),r2(p.gy),p.team]),
     f:G.fxOut?G.fxOut.splice(0).map(f=>Object.assign({},f,{t:0})):[]};
   if(G.phase==='place') m.sp=S.pieces.filter(p=>p.pos).map(p=>[p.key,p.pos.c,p.pos.r]);
   G.shakeOut=0;
@@ -927,7 +1012,7 @@ function makeView(init,deck,side){
   return V;
 }
 function applySnap(V,m,now,side){
-  V.phase=m.ph; V.placeT=m.pt; V.t=m.tm; V.over=!!m.ov; V.winner=m.wn; if(m.sh) V.shake=Math.max(V.shake,m.sh);
+  V.phase=m.ph; V.placeT=m.pt; V.t=m.tm; V.furyOn=m.tm>=MATCH-FURY; V.over=!!m.ov; V.winner=m.wn; if(m.sh) V.shake=Math.max(V.shake,m.sh);
   const S=V.side[side]; S.mana=m.m; S.hand=m.h.slice(); S.queue=[m.q];
   if(m.sp&&V.phase==='place') S.pieces.forEach(p=>{ const q=m.sp.find(z=>z[0]===p.key); p.pos=q?{c:q[1],r:q[2]}:null; });
   for(let r=0;r<H;r++) V.ice[r].fill(0);
@@ -936,12 +1021,12 @@ function applySnap(V,m,now,side){
   m.e.forEach(t=>{
     const id=t[0]; seen.add(id); let e=V.byId.get(id);
     if(t[1]===0){
-      if(!e){ const card=CARDS[t[3]], d=card?card.u:SUMM[t[3]]; e={id:id,kind:'unit',team:t[2],key:t[3],def:{fly:d.fly||0,magicUser:d.magicUser||0},dead:false,st:{},x:t[4],y:t[5],x0:t[4],y0:t[5],x1:t[4],y1:t[5],t0:now,isV:1}; V.byId.set(id,e); V.ents.push(e); e.fresh=1; }
+      if(!e){ const card=CARDS[t[3]], d=card?card.u:SUMM[t[3]]; e={id:id,kind:'unit',team:t[2],key:t[3],def:{fly:d.fly||0,magicUser:d.magicUser||0,r:d.r,enrage:d.enrage||0},dead:false,st:{},x:t[4],y:t[5],x0:t[4],y0:t[5],x1:t[4],y1:t[5],t0:now,isV:1}; V.byId.set(id,e); V.ents.push(e); e.fresh=1; }
       e.x0=e.x; e.y0=e.y; e.x1=t[4]; e.y1=t[5]; e.t0=now;
-      e.hp=t[6]; e.maxhp=t[7]; e.r=t[8]; e.moving=t[9]?1:0; e.awv=t[10]; e.atv=t[11]; e.ang=t[12]; e.grounded=t[13]; e.st={freeze:t[14],root:t[15],slow:t[16],silence:t[17]}; e.hit=t[18]?.12:0;
+      e.hp=t[6]; e.maxhp=t[7]; e.r=t[8]; e.moving=t[9]?1:0; e.awv=t[10]; e.atv=t[11]; e.ang=t[12]; e.grounded=t[13]; e.st={freeze:t[14],root:t[15],slow:t[16],silence:t[17]}; e.hit=t[18]?.12:0; e.lvl=t[19]||0; e.rage=(t[20]&1)?1:0; e.enr=(t[20]&2)?1:0;
     } else {
       if(!e){ e={id:id,kind:'struct',team:t[2],key:t[3],def:{},dead:false,st:{},x:t[4],y:t[5],isV:1}; V.byId.set(id,e); V.ents.push(e); e.fresh=1; }
-      e.x=t[4]; e.y=t[5]; e.hp=t[6]; e.maxhp=t[7]; e.type=t[8]; e.tx=t[9]; e.ty=t[10]; e.atk=t[11]; e.hit=t[12]?.12:0; e.st={silence:t[13]}; e.dead=!!t[14]; e.r=t[8]==='heart'?1:.45;
+      e.x=t[4]; e.y=t[5]; e.hp=t[6]; e.maxhp=t[7]; e.type=t[8]; e.tx=t[9]; e.ty=t[10]; e.atk=t[11]; e.hit=t[12]?.12:0; e.st={silence:t[13]}; e.dead=!!t[14]; e.ang=t[15]||0; e.r=t[8]==='heart'?1:.45;
     }
   });
   V.ents=V.ents.filter(e=>{ if(!seen.has(e.id)){ V.byId.delete(e.id); return false; } return true; });
@@ -951,7 +1036,7 @@ function applySnap(V,m,now,side){
     else if(e.tx>=0) V.occ[e.ty][e.tx]=e; });
   V.hearts=[V.ents.find(e=>e.type==='heart'&&e.team===0)||null,V.ents.find(e=>e.type==='heart'&&e.team===1)||null];
   const old=new Map(V.proj.map(p=>[p.id,p]));
-  V.proj=(m.p||[]).map(t=>{ const o=old.get(t[0]); const p={id:t[0],x:t[1],y:t[2],ty:t[3]?'magic':'phys',fire:t[4],aoe:t[5],kind:t[6],tr:o?o.tr:[]}; if(o){ p.tr.push([o.x,o.y]); if(p.tr.length>7) p.tr.shift(); } return p; });
+  V.proj=(m.p||[]).map(t=>{ const o=old.get(t[0]); const p={id:t[0],x:t[1],y:t[2],ty:t[3]?'magic':'phys',fire:t[4],aoe:t[5],kind:t[6],x0:t[7],y0:t[8],gx:t[9],gy:t[10],team:t[11],tr:o?o.tr:[]}; if(o){ p.tr.push([o.x,o.y]); if(p.tr.length>7) p.tr.shift(); } return p; });
   (m.f||[]).forEach(f=>{ f.t=0; V.fx.push(f); });
 }
 function interpView(V,now){
@@ -959,7 +1044,7 @@ function interpView(V,now){
 }
 function ageView(V,dt){ for(let i=V.fx.length-1;i>=0;i--){ V.fx[i].t+=dt; if(V.fx[i].t>=V.fx[i].dur) V.fx.splice(i,1); } }
 
-return {W,H,HALF,MATCH,MAXMANA,PLACE_TIME,CARDS,ORDER,MAPS,SUMM,DEFAULT_DECK,statLines,validateDeck,randomDeck,
+return {FURY,W,H,HALF,MATCH,MAXMANA,PLACE_TIME,CARDS,ORDER,MAPS,SUMM,DEFAULT_DECK,statLines,validateDeck,randomDeck,
   createGame,autoOne,DIFF,step,startBattle,setPiece,clearPiece,canPlaceAt,padAt,playCard,playCheck,discard,spellReason,isStruct,genMap,connected,
   snapshot,makeView,applySnap,interpView,ageView,mapInfo};
 
